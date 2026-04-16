@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أداة إنجاز - دمج ملفات التسجيل</title>
+    <!-- استخدام مكتبة SheetJS لقراءة ودمج ملفات الإكسل بسهولة -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 90vh;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 600px;
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-weight: 800;
+        }
+        p.subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 25px;
+            font-size: 15px;
+        }
+        .upload-area {
+            border: 2px dashed #0052CC;
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            background-color: #f8faff;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            position: relative;
+        }
+        .upload-area:hover {
+            background-color: #eef3fc;
+        }
+        .upload-area input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .upload-icon {
+            font-size: 40px;
+            color: #0052CC;
+            margin-bottom: 10px;
+        }
+        .upload-text {
+            color: #0052CC;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .file-list {
+            margin-top: 20px;
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #e1e8ed;
+            border-radius: 6px;
+            padding: 10px;
+            background-color: #fafbfc;
+            display: none;
+        }
+        .file-list ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        .file-list li {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+            color: #34495e;
+            display: flex;
+            justify-content: space-between;
+        }
+        .file-list li:last-child {
+            border-bottom: none;
+        }
+        .file-count-badge {
+            background-color: #e67e22;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        button:hover {
+            background-color: #219653;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        #statusMessage {
+            text-align: center;
+            margin-top: 15px;
+            font-weight: bold;
+            color: #27ae60;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>أداة دمج ملفات الإكسل</h2>
+    <p class="subtitle">حدد كل الملفات اللي الطلبة بعتتها، والأداة هتدمجهم في شيت واحد</p>
+    
+    <div class="upload-area">
+        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" multiple onchange="handleFileSelection()">
+        <div class="upload-icon">📁</div>
+        <div class="upload-text">اضغط هنا لاختيار الملفات أو اسحبها وأفلتها هنا</div>
+        <div style="color: #7f8c8d; font-size: 13px; margin-top: 5px;">يمكنك اختيار أكثر من ملف في نفس الوقت</div>
+    </div>
+
+    <div class="file-list" id="fileListContainer">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: bold; color: #0052CC;">
+            <span>الملفات المختارة:</span>
+            <span class="file-count-badge" id="fileCount">0</span>
+        </div>
+        <ul id="fileList"></ul>
+    </div>
+
+    <button id="mergeBtn" onclick="mergeExcelFiles()" disabled>دمج وتحميل الملف النهائي</button>
+    
+    <div id="statusMessage"></div>
+</div>
+
+<script>
+    // عرض الملفات اللي تم اختيارها
+    function handleFileSelection() {
+        const fileInput = document.getElementById('fileInput');
+        const fileListContainer = document.getElementById('fileListContainer');
+        const fileList = document.getElementById('fileList');
+        const fileCount = document.getElementById('fileCount');
+        const mergeBtn = document.getElementById('mergeBtn');
+        const statusMessage = document.getElementById('statusMessage');
+        
+        fileList.innerHTML = '';
+        statusMessage.style.display = 'none';
+
+        if (fileInput.files.length > 0) {
+            fileListContainer.style.display = 'block';
+            fileCount.textContent = fileInput.files.length;
+            mergeBtn.disabled = false;
+
+            Array.from(fileInput.files).forEach(file => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span>${file.name}</span> <span style="color:#95a5a6;">${(file.size / 1024).toFixed(1)} KB</span>`;
+                fileList.appendChild(li);
+            });
+        } else {
+            fileListContainer.style.display = 'none';
+            mergeBtn.disabled = true;
+        }
+    }
+
+    // قراءة الملفات كـ ArrayBuffer
+    function readFileAsync(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(e);
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    // دمج الملفات
+    async function mergeExcelFiles() {
+        const fileInput = document.getElementById('fileInput');
+        const files = fileInput.files;
+        const mergeBtn = document.getElementById('mergeBtn');
+        const statusMessage = document.getElementById('statusMessage');
+
+        if (files.length === 0) return;
+
+        mergeBtn.disabled = true;
+        mergeBtn.textContent = "جاري الدمج...";
+
+        try {
+            let masterData = [];
+            let isFirstFile = true;
+            let totalRows = 0;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const data = await readFileAsync(file);
+                
+                // قراءة الملف باستخدام SheetJS
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // تحويل الشيت لمصفوفة (Array of Arrays)
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                if (jsonData.length > 0) {
+                    if (isFirstFile) {
+                        // لو ده أول ملف، بناخد البيانات كلها (بما فيها صف العناوين)
+                        masterData = masterData.concat(jsonData);
+                        isFirstFile = false;
+                        totalRows += jsonData.length - 1; // بنقص صف العناوين من العد
+                    } else {
+                        // لو ملف تاني، بنتجاهل أول صف (صف العناوين) وبناخد الباقي
+                        const dataWithoutHeader = jsonData.slice(1);
+                        masterData = masterData.concat(dataWithoutHeader);
+                        totalRows += dataWithoutHeader.length;
+                    }
+                }
+            }
+
+            // إنشاء ملف إكسل جديد بالبيانات المدمجة
+            const newWorkbook = XLSX.utils.book_new();
+            const newWorksheet = XLSX.utils.aoa_to_sheet(masterData);
+            
+            // ضبط اتجاه الشيت لليمين (عربي)
+            if(!newWorkbook.Workbook) newWorkbook.Workbook = {};
+            if(!newWorkbook.Workbook.Views) newWorkbook.Workbook.Views = [];
+            newWorkbook.Workbook.Views.push({ RTL: true });
+
+            XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "المقررات المجمعة");
+
+            // تحميل الملف النهائي
+            XLSX.writeFile(newWorkbook, "التسجيل_النهائي_للطلاب.xlsx");
+
+            // إظهار رسالة نجاح
+            statusMessage.style.display = 'block';
+            statusMessage.textContent = `✅ تم دمج ${files.length} ملف بنجاح! إجمالي المقررات المسجلة: ${totalRows} مادة.`;
+            mergeBtn.textContent = "دمج وتحميل الملف النهائي";
+            mergeBtn.disabled = false;
+
+        } catch (error) {
+            console.error(error);
+            alert("حصلت مشكلة أثناء الدمج! يرجى التأكد إن الملفات مش تالفة.");
+            mergeBtn.textContent = "دمج وتحميل الملف النهائي";
+            mergeBtn.disabled = false;
+        }
+    }
+</script>
+
+</body>
+</html>
