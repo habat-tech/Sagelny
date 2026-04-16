@@ -37,6 +37,31 @@
             margin-bottom: 25px;
             font-size: 15px;
         }
+        
+        .filename-input-group {
+            margin-bottom: 20px;
+        }
+        .filename-input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #0052CC;
+            font-size: 14px;
+        }
+        .filename-input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e1e8ed;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+        .filename-input-group input:focus {
+            border-color: #0052CC;
+            outline: none;
+        }
+
         .upload-area {
             border: 2px dashed #0052CC;
             border-radius: 8px;
@@ -50,7 +75,8 @@
         .upload-area:hover {
             background-color: #eef3fc;
         }
-        .upload-area input[type="file"] {
+        /* بنخلي ال input يغطي المساحة بس مش بيتداس عليه مباشرة لو دوسنا على زرار الحذف */
+        .file-input-cover {
             position: absolute;
             top: 0;
             left: 0;
@@ -58,6 +84,7 @@
             height: 100%;
             opacity: 0;
             cursor: pointer;
+            z-index: 1;
         }
         .upload-icon {
             font-size: 40px;
@@ -71,7 +98,7 @@
         }
         .file-list {
             margin-top: 20px;
-            max-height: 150px;
+            max-height: 200px; /* كبرت المساحة شوية */
             overflow-y: auto;
             border: 1px solid #e1e8ed;
             border-radius: 6px;
@@ -91,9 +118,31 @@
             color: #34495e;
             display: flex;
             justify-content: space-between;
+            align-items: center;
         }
         .file-list li:last-child {
             border-bottom: none;
+        }
+        .file-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .file-size {
+            font-size: 12px;
+            color: #95a5a6;
+        }
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 5px;
+            transition: transform 0.2s;
+            z-index: 2; /* عشان يشتغل فوق مساحة الرفع */
+        }
+        .delete-btn:hover {
+            transform: scale(1.2);
         }
         .file-count-badge {
             background-color: #e67e22;
@@ -103,7 +152,7 @@
             font-size: 12px;
             font-weight: bold;
         }
-        button {
+        button.action-btn {
             width: 100%;
             padding: 14px;
             background-color: #27ae60;
@@ -116,13 +165,13 @@
             margin-top: 20px;
             transition: background-color 0.3s, transform 0.1s;
         }
-        button:hover {
+        button.action-btn:hover {
             background-color: #219653;
         }
-        button:active {
+        button.action-btn:active {
             transform: scale(0.98);
         }
-        button:disabled {
+        button.action-btn:disabled {
             background-color: #bdc3c7;
             cursor: not-allowed;
         }
@@ -132,6 +181,9 @@
             font-weight: bold;
             color: #27ae60;
             display: none;
+            padding: 10px;
+            border-radius: 6px;
+            background-color: #e8f8f5;
         }
     </style>
 </head>
@@ -141,11 +193,16 @@
     <h2>أداة دمج ملفات الإكسل</h2>
     <p class="subtitle">حدد كل الملفات اللي الطلبة بعتتها، والأداة هتدمجهم في شيت واحد</p>
     
-    <div class="upload-area">
-        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" multiple onchange="handleFileSelection()">
+    <div class="filename-input-group">
+        <label for="outputFileName">اسم الملف النهائي (اختياري):</label>
+        <input type="text" id="outputFileName" placeholder="مثال: تسجيل الفرقة التانية (بدون .xlsx)">
+    </div>
+
+    <div class="upload-area" id="uploadArea">
+        <input type="file" id="fileInput" class="file-input-cover" accept=".xlsx, .xls, .csv" multiple onchange="handleNewFiles()">
         <div class="upload-icon">📁</div>
         <div class="upload-text">اضغط هنا لاختيار الملفات أو اسحبها وأفلتها هنا</div>
-        <div style="color: #7f8c8d; font-size: 13px; margin-top: 5px;">يمكنك اختيار أكثر من ملف في نفس الوقت</div>
+        <div style="color: #7f8c8d; font-size: 13px; margin-top: 5px;">يمكنك اختيار أو إضافة أكثر من ملف</div>
     </div>
 
     <div class="file-list" id="fileListContainer">
@@ -156,15 +213,37 @@
         <ul id="fileList"></ul>
     </div>
 
-    <button id="mergeBtn" onclick="mergeExcelFiles()" disabled>دمج وتحميل الملف النهائي</button>
+    <button id="mergeBtn" class="action-btn" onclick="mergeExcelFiles()" disabled>دمج وتحميل الملف النهائي</button>
     
     <div id="statusMessage"></div>
 </div>
 
 <script>
-    // عرض الملفات اللي تم اختيارها
-    function handleFileSelection() {
+    // مصفوفة لتخزين الملفات المختارة (عشان نقدر نحذف منها ونضيف عليها)
+    let selectedFiles = [];
+
+    // التعامل مع اختيار ملفات جديدة
+    function handleNewFiles() {
         const fileInput = document.getElementById('fileInput');
+        const newFiles = Array.from(fileInput.files);
+        
+        // إضافة الملفات الجديدة للمصفوفة
+        selectedFiles = selectedFiles.concat(newFiles);
+        
+        // تفريغ الـ input عشان لو حبيت تختار نفس الملف تاني يقبله
+        fileInput.value = ''; 
+        
+        updateUI();
+    }
+
+    // حذف ملف من القائمة
+    function removeFile(index) {
+        selectedFiles.splice(index, 1);
+        updateUI();
+    }
+
+    // تحديث واجهة المستخدم (القائمة والعداد والزرار)
+    function updateUI() {
         const fileListContainer = document.getElementById('fileListContainer');
         const fileList = document.getElementById('fileList');
         const fileCount = document.getElementById('fileCount');
@@ -174,14 +253,20 @@
         fileList.innerHTML = '';
         statusMessage.style.display = 'none';
 
-        if (fileInput.files.length > 0) {
+        if (selectedFiles.length > 0) {
             fileListContainer.style.display = 'block';
-            fileCount.textContent = fileInput.files.length;
+            fileCount.textContent = selectedFiles.length;
             mergeBtn.disabled = false;
 
-            Array.from(fileInput.files).forEach(file => {
+            selectedFiles.forEach((file, index) => {
                 const li = document.createElement('li');
-                li.innerHTML = `<span>${file.name}</span> <span style="color:#95a5a6;">${(file.size / 1024).toFixed(1)} KB</span>`;
+                li.innerHTML = `
+                    <div class="file-info">
+                        <span>${file.name}</span>
+                        <span class="file-size">${(file.size / 1024).toFixed(1)} KB</span>
+                    </div>
+                    <button class="delete-btn" onclick="removeFile(${index})" title="حذف الملف">❌</button>
+                `;
                 fileList.appendChild(li);
             });
         } else {
@@ -202,12 +287,18 @@
 
     // دمج الملفات
     async function mergeExcelFiles() {
-        const fileInput = document.getElementById('fileInput');
-        const files = fileInput.files;
+        if (selectedFiles.length === 0) return;
+
         const mergeBtn = document.getElementById('mergeBtn');
         const statusMessage = document.getElementById('statusMessage');
-
-        if (files.length === 0) return;
+        let outputFileNameInput = document.getElementById('outputFileName').value.trim();
+        
+        // تحديد اسم الملف النهائي
+        let finalFileName = "التسجيل_النهائي_للطلاب.xlsx";
+        if (outputFileNameInput) {
+            // لو اليوزر كتب اسم، نتأكد إنه مش كاتب الامتداد مرتين
+            finalFileName = outputFileNameInput.endsWith('.xlsx') ? outputFileNameInput : outputFileNameInput + '.xlsx';
+        }
 
         mergeBtn.disabled = true;
         mergeBtn.textContent = "جاري الدمج...";
@@ -217,8 +308,8 @@
             let isFirstFile = true;
             let totalRows = 0;
 
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
                 const data = await readFileAsync(file);
                 
                 // قراءة الملف باستخدام SheetJS
@@ -255,18 +346,22 @@
 
             XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "المقررات المجمعة");
 
-            // تحميل الملف النهائي
-            XLSX.writeFile(newWorkbook, "التسجيل_النهائي_للطلاب.xlsx");
+            // تحميل الملف النهائي بالاسم المختار
+            XLSX.writeFile(newWorkbook, finalFileName);
 
             // إظهار رسالة نجاح
             statusMessage.style.display = 'block';
-            statusMessage.textContent = `✅ تم دمج ${files.length} ملف بنجاح! إجمالي المقررات المسجلة: ${totalRows} مادة.`;
+            statusMessage.textContent = `✅ تم دمج ${selectedFiles.length} ملف بنجاح! إجمالي المقررات المسجلة: ${totalRows} مادة في ملف "${finalFileName}".`;
             mergeBtn.textContent = "دمج وتحميل الملف النهائي";
             mergeBtn.disabled = false;
 
+            // اختياري: تفريغ القائمة بعد الدمج الناجح (لو حابب تسيبها شيل السطرين دول)
+            // selectedFiles = [];
+            // updateUI();
+
         } catch (error) {
             console.error(error);
-            alert("حصلت مشكلة أثناء الدمج! يرجى التأكد إن الملفات مش تالفة.");
+            alert("حصلت مشكلة أثناء الدمج! يرجى التأكد إن الملفات مش تالفة وإنها ملفات إكسل صحيحة.");
             mergeBtn.textContent = "دمج وتحميل الملف النهائي";
             mergeBtn.disabled = false;
         }
