@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>أداة إنجاز - تسجيل مقررات تمريض</title>
-    <!-- مكتبة SheetJS لإنشاء ملفات الإكسل بصيغة xlsx الحقيقية -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- استخدام مكتبة ExcelJS لدعم تلوين وتنسيق خلايا الإكسل -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -237,8 +238,8 @@
         checkboxes.forEach(cb => cb.checked = status);
     }
 
-    // دالة إنشاء ملف الإكسل (XLSX الحقيقي)
-    function generateExcel() {
+    // دالة إنشاء ملف الإكسل (مع التلوين والتنسيق)
+    async function generateExcel() {
         const studentName = document.getElementById("studentName").value.trim();
         const studentCode = document.getElementById("studentCode").value.trim();
         const nationalId = document.getElementById("nationalId").value.trim();
@@ -248,35 +249,68 @@
             return;
         }
 
-        let excelData = [];
+        // إنشاء ملف إكسل جديد
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet("تسجيل المقررات", {
+            views: [{ rightToLeft: true }] // عشان الشيت يفتح من اليمين لليسار (عربي)
+        });
 
-        // المرور على المواد المختارة وإضافتها للمصفوفة
+        // إعداد الأعمدة ومقاساتها
+        worksheet.columns = [
+            { header: 'الرقم القومي', key: 'nationalId', width: 22 },
+            { header: 'كود الطالب', key: 'studentCode', width: 18 },
+            { header: 'اسم الطالب', key: 'studentName', width: 30 },
+            { header: 'كود المقرر', key: 'courseCode', width: 18 },
+            { header: 'اسم المقرر', key: 'courseName', width: 45 }
+        ];
+
+        // تلوين وتنسيق صف العناوين (الصف الأول)
+        const headerRow = worksheet.getRow(1);
+        headerRow.eachCell((cell) => {
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF0052CC' } // اللون الأزرق اللي طلبته
+            };
+            cell.font = {
+                color: { argb: 'FFFFFFFF' }, // خط أبيض عشان التباين
+                bold: true,
+                size: 12
+            };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+
+        let hasCourses = false;
+
+        // المرور على المواد المختارة وإضافتها
         courses.forEach((course, index) => {
             const checkbox = document.getElementById(`course_${index}`);
             if (checkbox.checked) {
-                // تنسيق الأعمدة المطلوبة
-                excelData.push({
-                    "الرقم القومي": nationalId,
-                    "كود الطالب": studentCode,
-                    "اسم الطالب": studentName,
-                    "كود المقرر": course.code,
-                    "اسم المقرر": course.name
+                hasCourses = true;
+                const row = worksheet.addRow({
+                    nationalId: nationalId,
+                    studentCode: studentCode,
+                    studentName: studentName,
+                    courseCode: course.code,
+                    courseName: course.name
+                });
+                
+                // توسيط النص في كل الخلايا اللي تحت
+                row.eachCell((cell) => {
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
                 });
             }
         });
 
-        if (excelData.length === 0) {
+        if (!hasCourses) {
             alert("لازم تختار مادة واحدة على الأقل للتسجيل!");
             return;
         }
 
-        // تحويل البيانات لملف إكسل باستخدام SheetJS
-        const worksheet = XLSX.utils.json_to_sheet(excelData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "تسجيل المقررات");
-
-        // تحميل الملف بالاسم الافتراضي المطلوب
-        XLSX.writeFile(workbook, "student_courses_template (1).xlsx");
+        // إنشاء الملف وتحميله
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(blob, "student_courses_template (1).xlsx");
     }
 </script>
 
