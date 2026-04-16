@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أداة إنجاز - تسجيل مقررات تمريض</title>
+    <!-- مكتبة SheetJS لإنشاء ملفات الإكسل بصيغة xlsx الحقيقية -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 550px;
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 25px;
+            font-weight: 800;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        /* تلوين العناوين باللون المطلوب */
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #0052CC; /* اللون اللي طلبته */
+            font-size: 15px;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            border-color: #0052CC;
+            outline: none;
+        }
+        .courses-wrapper {
+            margin-top: 25px;
+            border: 2px solid #e1e8ed;
+            border-radius: 6px;
+            background-color: #fafbfc;
+            overflow: hidden;
+        }
+        .courses-header {
+            background-color: #0052CC;
+            color: white;
+            padding: 12px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 15px;
+        }
+        .courses-list {
+            padding: 15px;
+            max-height: 250px; /* شريط تمرير عشان لو المواد كتير */
+            overflow-y: auto;
+        }
+        .course-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 8px;
+            background-color: white;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            transition: background-color 0.2s;
+        }
+        .course-item:hover {
+            background-color: #f1f5f9;
+        }
+        .course-item input {
+            margin-left: 12px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .course-item label {
+            margin: 0;
+            font-weight: normal;
+            color: #333; /* اسم المادة جوه القائمة بلون عادي عشان يبقى مريح للعين */
+            cursor: pointer;
+            width: 100%;
+        }
+        .course-code-badge {
+            color: #e67e22;
+            font-size: 13px;
+            font-weight: bold;
+            float: left;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #0052CC;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 25px;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        button:hover {
+            background-color: #0040a1;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        .footer-note {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 13px;
+            color: #7f8c8d;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background-color: #f1f5f9;
+            border-bottom: 1px solid #e1e8ed;
+        }
+        .controls span {
+            color: #0052CC;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>أداة تسجيل المقررات</h2>
+    
+    <div class="form-group">
+        <label for="studentName">اسم الطالب (رباعي):</label>
+        <input type="text" id="studentName" placeholder="أدخل اسمك بالكامل" required>
+    </div>
+
+    <div class="form-group">
+        <label for="studentCode">كود الطالب:</label>
+        <input type="text" id="studentCode" placeholder="أدخل الكود الجامعي بتاعك" required>
+    </div>
+
+    <div class="form-group">
+        <label for="nationalId">الرقم القومي:</label>
+        <input type="number" id="nationalId" placeholder="أدخل رقمك القومي (14 رقم)" required>
+    </div>
+
+    <div class="courses-wrapper">
+        <div class="courses-header">
+            المقررات الدراسية (حدد موادك)
+        </div>
+        <div class="controls">
+            <span onclick="toggleAll(true)">تحديد الكل</span>
+            <span onclick="toggleAll(false)">إلغاء الكل</span>
+        </div>
+        <div class="courses-list" id="coursesContainer">
+            <!-- المواد هيتم إضافتها هنا برمجياً -->
+        </div>
+    </div>
+
+    <button onclick="generateExcel()">تحميل ملف الإكسل والتسجيل</button>
+    <div class="footer-note">الاسم الافتراضي للملف: student_courses_template (1).xlsx</div>
+</div>
+
+<script>
+    // القائمة المجمعة والمنقحة للمواد
+    const courses = [
+        { name: "أساسيات التمريض 2 (نظري)", code: "AHN1112" },
+        { name: "أساسيات التمريض 2 (عملي)", code: "AHN1414" },
+        { name: "الرعاية التمريضية الشاملة", code: "AHN1114" },
+        { name: "التقييم الصحي (نظري)", code: "AHN11114" },
+        { name: "تقييم صحي (عملي)", code: "AHN14116" },
+        { name: "علم الأدوية", code: "AHN12115" },
+        { name: "أساسيات الجودة", code: "NAD11713" },
+        { name: "التثقيف الصحي", code: "CHN13617" },
+        { name: "تمريض صحة البالغين II (نظري)", code: "AHN2118" },
+        { name: "تمريض صحة البالغين II (عملي)", code: "AHN24110" },
+        { name: "تمريض الحالات الحرجة والطوارئ (نظري)", code: "AHN2119" },
+        { name: "تمريض الحالات الحرجة والطوارئ (عملي)", code: "AHN24111" },
+        { name: "أمراض الجراحة", code: "AHN22112" },
+        { name: "طب الحالات الحرجة والطوارئ (نظري)", code: "AHN22113" },
+        { name: "تمريض الأطفال (نظري)", code: "PEN3141" },
+        { name: "تمريض أطفال (عملي)", code: "PEN3442" },
+        { name: "طب الأطفال", code: "PEN3244" },
+        { name: "جراحة أطفال", code: "PEN3245" },
+        { name: "مبادئ الإحصاء (الإحصاء الحيوي)", code: "PEN3346" },
+        { name: "الممارسة التمريضية", code: "PEN3143" },
+        { name: "تمريض صحة المجتمع (نظري)", code: "CHN4161" },
+        { name: "تمريض صحة المجتمع (عملي)", code: "CHN4462" },
+        { name: "إدارة التمريض (نظري)", code: "NAD4171" },
+        { name: "إدارة التمريض (عملي)", code: "NAD4472" },
+        { name: "إدارة صحة عامة", code: "NAD4173" },
+        { name: "سلامة الغذاء", code: "ELC3" },
+        { name: "رعاية تمريضية للمرضى ذوي الاحتياجات الخاصة", code: "ELC4" },
+        { name: "الصحة المهنية", code: "ELC5" }
+    ];
+
+    // عرض المواد في الصفحة
+    const container = document.getElementById("coursesContainer");
+    courses.forEach((course, index) => {
+        const div = document.createElement("div");
+        div.className = "course-item";
+        div.innerHTML = `
+            <input type="checkbox" id="course_${index}" value="${index}" class="course-checkbox">
+            <label for="course_${index}">
+                ${course.name} 
+                <span class="course-code-badge">${course.code}</span>
+            </label>
+        `;
+        container.appendChild(div);
+    });
+
+    // دالة تحديد/إلغاء تحديد الكل
+    function toggleAll(status) {
+        const checkboxes = document.querySelectorAll('.course-checkbox');
+        checkboxes.forEach(cb => cb.checked = status);
+    }
+
+    // دالة إنشاء ملف الإكسل (XLSX الحقيقي)
+    function generateExcel() {
+        const studentName = document.getElementById("studentName").value.trim();
+        const studentCode = document.getElementById("studentCode").value.trim();
+        const nationalId = document.getElementById("nationalId").value.trim();
+
+        if (!studentName || !studentCode || !nationalId) {
+            alert("يا بطل، لازم تملى البيانات الأساسية كلها (الاسم، كود الطالب، والرقم القومي)!");
+            return;
+        }
+
+        let excelData = [];
+
+        // المرور على المواد المختارة وإضافتها للمصفوفة
+        courses.forEach((course, index) => {
+            const checkbox = document.getElementById(`course_${index}`);
+            if (checkbox.checked) {
+                // تنسيق الأعمدة المطلوبة
+                excelData.push({
+                    "الرقم القومي": nationalId,
+                    "كود الطالب": studentCode,
+                    "اسم الطالب": studentName,
+                    "كود المقرر": course.code,
+                    "اسم المقرر": course.name
+                });
+            }
+        });
+
+        if (excelData.length === 0) {
+            alert("لازم تختار مادة واحدة على الأقل للتسجيل!");
+            return;
+        }
+
+        // تحويل البيانات لملف إكسل باستخدام SheetJS
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "تسجيل المقررات");
+
+        // تحميل الملف بالاسم الافتراضي المطلوب
+        XLSX.writeFile(workbook, "student_courses_template (1).xlsx");
+    }
+</script>
+
+</body>
+</html>
