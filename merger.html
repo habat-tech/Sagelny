@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>أداة إنجاز - دمج ملفات التسجيل</title>
-    <!-- استخدام مكتبة SheetJS لقراءة ودمج ملفات الإكسل بسهولة -->
+    <title>أداة إنجاز - الدمج المتقدم (مطابقة القالب)</title>
+    <!-- مكتبة SheetJS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
@@ -23,24 +23,27 @@
             border-radius: 12px;
             box-shadow: 0 8px 16px rgba(0,0,0,0.08);
             width: 100%;
-            max-width: 600px;
+            max-width: 700px;
         }
         h2 {
             text-align: center;
             color: #2c3e50;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
             font-weight: 800;
         }
         p.subtitle {
             text-align: center;
             color: #7f8c8d;
             margin-bottom: 25px;
-            font-size: 15px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .highlight-text {
+            color: #e67e22;
+            font-weight: bold;
         }
         
-        .filename-input-group {
-            margin-bottom: 20px;
-        }
+        .filename-input-group { margin-bottom: 20px; }
         .filename-input-group label {
             display: block;
             margin-bottom: 8px;
@@ -57,10 +60,7 @@
             font-size: 15px;
             transition: border-color 0.3s;
         }
-        .filename-input-group input:focus {
-            border-color: #0052CC;
-            outline: none;
-        }
+        .filename-input-group input:focus { border-color: #0052CC; outline: none; }
 
         .upload-area {
             border: 2px dashed #0052CC;
@@ -72,33 +72,18 @@
             transition: background-color 0.3s;
             position: relative;
         }
-        .upload-area:hover {
-            background-color: #eef3fc;
-        }
-        /* بنخلي ال input يغطي المساحة بس مش بيتداس عليه مباشرة لو دوسنا على زرار الحذف */
+        .upload-area:hover { background-color: #eef3fc; }
         .file-input-cover {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            cursor: pointer;
-            z-index: 1;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0; cursor: pointer; z-index: 1;
         }
-        .upload-icon {
-            font-size: 40px;
-            color: #0052CC;
-            margin-bottom: 10px;
-        }
-        .upload-text {
-            color: #0052CC;
-            font-weight: bold;
-            font-size: 16px;
-        }
+        .upload-icon { font-size: 40px; color: #0052CC; margin-bottom: 10px; }
+        .upload-text { color: #0052CC; font-weight: bold; font-size: 16px; }
+        
         .file-list {
             margin-top: 20px;
-            max-height: 200px; /* كبرت المساحة شوية */
+            max-height: 200px;
             overflow-y: auto;
             border: 1px solid #e1e8ed;
             border-radius: 6px;
@@ -106,103 +91,105 @@
             background-color: #fafbfc;
             display: none;
         }
-        .file-list ul {
-            list-style-type: none;
-            padding: 0;
-            margin: 0;
-        }
+        .file-list ul { list-style-type: none; padding: 0; margin: 0; }
         .file-list li {
             padding: 8px;
             border-bottom: 1px solid #eee;
             font-size: 14px;
-            color: #34495e;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .file-list li:last-child {
-            border-bottom: none;
+        .file-list li:first-child {
+            background-color: #e8f4fd;
+            border: 1px solid #0052CC;
+            border-radius: 4px;
         }
-        .file-info {
-            display: flex;
-            flex-direction: column;
+        .file-list li:first-child::before {
+            content: "👑 (القالب المرجعي)";
+            color: #0052CC;
+            font-size: 11px;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 2px;
         }
-        .file-size {
-            font-size: 12px;
-            color: #95a5a6;
-        }
+        .file-list li:last-child { border-bottom: none; }
+        .file-info { display: flex; flex-direction: column; width: 80%; }
+        .file-size { font-size: 12px; color: #95a5a6; }
         .delete-btn {
-            background: none;
-            border: none;
-            color: #e74c3c;
-            cursor: pointer;
-            font-size: 16px;
-            padding: 5px;
-            transition: transform 0.2s;
-            z-index: 2; /* عشان يشتغل فوق مساحة الرفع */
+            background: none; border: none; color: #e74c3c;
+            cursor: pointer; font-size: 16px; padding: 5px;
+            transition: transform 0.2s; z-index: 2;
         }
-        .delete-btn:hover {
-            transform: scale(1.2);
-        }
+        .delete-btn:hover { transform: scale(1.2); }
         .file-count-badge {
-            background-color: #e67e22;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
+            background-color: #0052CC; color: white;
+            padding: 2px 8px; border-radius: 12px;
+            font-size: 12px; font-weight: bold;
         }
+
         button.action-btn {
-            width: 100%;
-            padding: 14px;
-            background-color: #27ae60;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 20px;
-            transition: background-color 0.3s, transform 0.1s;
+            width: 100%; padding: 14px;
+            background-color: #27ae60; color: white;
+            border: none; border-radius: 6px;
+            font-size: 18px; font-weight: bold;
+            cursor: pointer; margin-top: 20px;
+            transition: background-color 0.3s;
         }
-        button.action-btn:hover {
-            background-color: #219653;
+        button.action-btn:hover { background-color: #219653; }
+        button.action-btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        
+        #statusMessage { margin-top: 20px; display: none; }
+        .success-header {
+            text-align: center; color: #27ae60;
+            font-weight: bold; font-size: 18px; margin-bottom: 15px;
         }
-        button.action-btn:active {
-            transform: scale(0.98);
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
         }
-        button.action-btn:disabled {
-            background-color: #bdc3c7;
-            cursor: not-allowed;
+        .stat-card {
+            background-color: #f8faff; border: 1px solid #e1e8ed;
+            border-radius: 8px; padding: 15px; text-align: center;
         }
-        #statusMessage {
-            text-align: center;
-            margin-top: 15px;
-            font-weight: bold;
-            color: #27ae60;
-            display: none;
-            padding: 10px;
-            border-radius: 6px;
-            background-color: #e8f8f5;
+        .stat-value {
+            font-size: 26px; font-weight: 900;
+            color: #0052CC; margin-bottom: 5px;
         }
+        .stat-value.success { color: #27ae60; }
+        .stat-value.danger { color: #e74c3c; }
+        .stat-label { font-size: 13px; color: #7f8c8d; font-weight: bold; }
+        
+        .error-box {
+            margin-top: 15px; padding: 15px; background-color: #fdf2f2;
+            color: #c0392b; border: 1px solid #fadbd8;
+            border-radius: 8px; font-size: 14px;
+        }
+        .error-box ul {
+            margin-top: 10px; padding-right: 20px;
+        }
+        .error-box li { margin-bottom: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>أداة دمج ملفات الإكسل</h2>
-    <p class="subtitle">حدد كل الملفات اللي الطلبة بعتتها، والأداة هتدمجهم في شيت واحد</p>
+    <h2>أداة الدمج (بناءً على قالب)</h2>
+    <p class="subtitle">
+        الأداة هتاخد <span class="highlight-text">أول ملف في القائمة</span> وتعتبر العناوين بتاعته هي الأساس.<br>
+        أي ملف تاني العناوين بتاعته مختلفة، هيتم استبعاده فوراً عشان ميبوظش الملف النهائي.
+    </p>
     
     <div class="filename-input-group">
         <label for="outputFileName">اسم الملف النهائي (اختياري):</label>
-        <input type="text" id="outputFileName" placeholder="مثال: تسجيل الفرقة التانية (بدون .xlsx)">
+        <input type="text" id="outputFileName" placeholder="مثال: تسجيل الجروب الأول (4 أعمدة)">
     </div>
 
     <div class="upload-area" id="uploadArea">
-        <input type="file" id="fileInput" class="file-input-cover" accept=".xlsx, .xls, .csv" multiple onchange="handleNewFiles()">
+        <input type="file" id="fileInput" class="file-input-cover" accept=".xlsx, .xls, .csv, .xlsm" multiple onchange="handleNewFiles()">
         <div class="upload-icon">📁</div>
-        <div class="upload-text">اضغط هنا لاختيار الملفات أو اسحبها وأفلتها هنا</div>
-        <div style="color: #7f8c8d; font-size: 13px; margin-top: 5px;">يمكنك اختيار أو إضافة أكثر من ملف</div>
+        <div class="upload-text">اضغط هنا أو اسحب الملفات (أول ملف هو القالب)</div>
     </div>
 
     <div class="file-list" id="fileListContainer">
@@ -213,36 +200,47 @@
         <ul id="fileList"></ul>
     </div>
 
-    <button id="mergeBtn" class="action-btn" onclick="mergeExcelFiles()" disabled>دمج وتحميل الملف النهائي</button>
+    <button id="mergeBtn" class="action-btn" onclick="mergeStrictFiles()" disabled>فحص ودمج الملفات المتطابقة</button>
     
-    <div id="statusMessage"></div>
+    <div id="statusMessage">
+        <div class="success-header" id="mainStatusText">✅ تم الانتهاء من فحص ودمج الملفات!</div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="statStudents">0</div>
+                <div class="stat-label">طلاب (بدون تكرار)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value success" id="statMerged">0</div>
+                <div class="stat-label">ملفات متطابقة (تم دمجها)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value danger" id="statAnomalous">0</div>
+                <div class="stat-label">ملفات شاذة (مرفوضة)</div>
+            </div>
+        </div>
+        <div id="anomalousWarningBox" class="error-box" style="display: none;">
+            <b>⚠️ تم استبعاد الملفات دي عشان أعمدتها مختلفة عن أول ملف:</b>
+            <ul id="anomalousList"></ul>
+        </div>
+    </div>
 </div>
 
 <script>
-    // مصفوفة لتخزين الملفات المختارة (عشان نقدر نحذف منها ونضيف عليها)
     let selectedFiles = [];
 
-    // التعامل مع اختيار ملفات جديدة
     function handleNewFiles() {
         const fileInput = document.getElementById('fileInput');
         const newFiles = Array.from(fileInput.files);
-        
-        // إضافة الملفات الجديدة للمصفوفة
         selectedFiles = selectedFiles.concat(newFiles);
-        
-        // تفريغ الـ input عشان لو حبيت تختار نفس الملف تاني يقبله
         fileInput.value = ''; 
-        
         updateUI();
     }
 
-    // حذف ملف من القائمة
     function removeFile(index) {
         selectedFiles.splice(index, 1);
         updateUI();
     }
 
-    // تحديث واجهة المستخدم (القائمة والعداد والزرار)
     function updateUI() {
         const fileListContainer = document.getElementById('fileListContainer');
         const fileList = document.getElementById('fileList');
@@ -262,7 +260,7 @@
                 const li = document.createElement('li');
                 li.innerHTML = `
                     <div class="file-info">
-                        <span>${file.name}</span>
+                        <span style="font-weight: bold; color: ${index === 0 ? '#0052CC' : '#34495e'}">${file.name}</span>
                         <span class="file-size">${(file.size / 1024).toFixed(1)} KB</span>
                     </div>
                     <button class="delete-btn" onclick="removeFile(${index})" title="حذف الملف">❌</button>
@@ -275,7 +273,6 @@
         }
     }
 
-    // قراءة الملفات كـ ArrayBuffer
     function readFileAsync(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -285,84 +282,163 @@
         });
     }
 
-    // دمج الملفات
-    async function mergeExcelFiles() {
+    async function mergeStrictFiles() {
         if (selectedFiles.length === 0) return;
 
         const mergeBtn = document.getElementById('mergeBtn');
         const statusMessage = document.getElementById('statusMessage');
         let outputFileNameInput = document.getElementById('outputFileName').value.trim();
         
-        // تحديد اسم الملف النهائي
-        let finalFileName = "التسجيل_النهائي_للطلاب.xlsx";
+        let finalFileName = "تسجيل_المجموعة_المنقحة.xlsx";
         if (outputFileNameInput) {
-            // لو اليوزر كتب اسم، نتأكد إنه مش كاتب الامتداد مرتين
             finalFileName = outputFileNameInput.endsWith('.xlsx') ? outputFileNameInput : outputFileNameInput + '.xlsx';
         }
 
         mergeBtn.disabled = true;
-        mergeBtn.textContent = "جاري الدمج...";
+        mergeBtn.textContent = "جاري الفحص الدقيق والدمج...";
 
         try {
+            let masterHeaders = [];
             let masterData = [];
-            let isFirstFile = true;
-            let totalRows = 0;
+            
+            let uniqueStudents = new Set();
+            let mergedFilesCount = 0;
+            let anomalousFiles = [];
+            
+            let natIdIndex = -1; // إندكس الرقم القومي عشان نعد الطلبة
 
             for (let i = 0; i < selectedFiles.length; i++) {
                 const file = selectedFiles[i];
-                const data = await readFileAsync(file);
                 
-                // قراءة الملف باستخدام SheetJS
+                const data = await readFileAsync(file);
                 const workbook = XLSX.read(data, { type: 'array' });
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
-                
-                // تحويل الشيت لمصفوفة (Array of Arrays)
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-                if (jsonData.length > 0) {
-                    if (isFirstFile) {
-                        // لو ده أول ملف، بناخد البيانات كلها (بما فيها صف العناوين)
-                        masterData = masterData.concat(jsonData);
-                        isFirstFile = false;
-                        totalRows += jsonData.length - 1; // بنقص صف العناوين من العد
+                // لو الملف فاضي، نتخطاه
+                if (jsonData.length === 0) continue;
+
+                // تنظيف عناوين الملف الحالي (بنشيل المسافات الزايدة عشان المقارنة تبقى دقيقة)
+                let currentHeaders = [];
+                if (jsonData[0] && jsonData[0].length > 0) {
+                    currentHeaders = jsonData[0].map(h => h ? String(h).trim() : "");
+                }
+
+                if (i === 0) {
+                    // --- الملف الأول (الدستور / القالب الأساسي) ---
+                    masterHeaders = currentHeaders;
+                    masterData.push(masterHeaders);
+                    mergedFilesCount++;
+                    
+                    // ندور على خانة الرقم القومي عشان الإحصائيات
+                    natIdIndex = masterHeaders.findIndex(h => h.includes('رقم') || h.includes('قومي'));
+                } else {
+                    // --- باقي الملفات (عملية الفحص والمطابقة) ---
+                    let isMatch = true;
+                    
+                    // 1. هل عدد الأعمدة متطابق؟
+                    if (currentHeaders.length !== masterHeaders.length) {
+                        isMatch = false;
                     } else {
-                        // لو ملف تاني، بنتجاهل أول صف (صف العناوين) وبناخد الباقي
-                        const dataWithoutHeader = jsonData.slice(1);
-                        masterData = masterData.concat(dataWithoutHeader);
-                        totalRows += dataWithoutHeader.length;
+                        // 2. هل أسماء الأعمدة متطابقة بالضبط وفي نفس الترتيب؟
+                        for (let j = 0; j < masterHeaders.length; j++) {
+                            if (currentHeaders[j] !== masterHeaders[j]) {
+                                isMatch = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    // لو الملف شاذ، نعزله ونسجل اسمه
+                    if (!isMatch) {
+                        anomalousFiles.push({
+                            name: file.name,
+                            reason: `عدد أعمدته (${currentHeaders.length}) أو أسماء العناوين غير مطابقة للملف الأول.`
+                        });
+                        continue; // تخطي الملف ده بالكامل
+                    } else {
+                        mergedFilesCount++;
+                    }
+                }
+
+                // سحب البيانات من الملفات المتطابقة
+                for (let r = 1; r < jsonData.length; r++) {
+                    const row = jsonData[r];
+                    // التأكد إن الصف مش فاضي بالكامل
+                    if (row && row.length > 0 && row.some(cell => cell !== undefined && cell !== "")) {
+                        // تظبيط طول الصف عشان يبقى قد العناوين بالظبط
+                        let cleanRow = [];
+                        for(let c=0; c < masterHeaders.length; c++) {
+                            cleanRow.push(row[c] !== undefined ? row[c] : "");
+                        }
+                        
+                        masterData.push(cleanRow);
+                        
+                        // إضافة الطالب لعداد الطلبة
+                        if (natIdIndex !== -1 && cleanRow[natIdIndex]) {
+                            uniqueStudents.add(String(cleanRow[natIdIndex]).trim());
+                        }
                     }
                 }
             }
 
-            // إنشاء ملف إكسل جديد بالبيانات المدمجة
+            if (masterData.length <= 1) {
+                alert("لم يتم استخراج أي بيانات! تأكد إن الملف الأول بيحتوي على بيانات صحيحة.");
+                mergeBtn.textContent = "فحص ودمج الملفات المتطابقة";
+                mergeBtn.disabled = false;
+                return;
+            }
+
+            // إنشاء ملف الإكسل النهائي
             const newWorkbook = XLSX.utils.book_new();
             const newWorksheet = XLSX.utils.aoa_to_sheet(masterData);
             
-            // ضبط اتجاه الشيت لليمين (عربي)
+            // تلوين العناوين في الملف النهائي
+            const range = XLSX.utils.decode_range(newWorksheet['!ref']);
+            for(let C = range.s.c; C <= range.e.c; ++C) {
+                const address = XLSX.utils.encode_col(C) + "1"; 
+                if(!newWorksheet[address]) continue;
+                newWorksheet[address].s = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "0052CC" } } };
+            }
+
             if(!newWorkbook.Workbook) newWorkbook.Workbook = {};
             if(!newWorkbook.Workbook.Views) newWorkbook.Workbook.Views = [];
             newWorkbook.Workbook.Views.push({ RTL: true });
 
-            XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "المقررات المجمعة");
+            XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "البيانات المدمجة");
 
-            // تحميل الملف النهائي بالاسم المختار
+            // تحميل الملف
             XLSX.writeFile(newWorkbook, finalFileName);
 
-            // إظهار رسالة نجاح
-            statusMessage.style.display = 'block';
-            statusMessage.textContent = `✅ تم دمج ${selectedFiles.length} ملف بنجاح! إجمالي المقررات المسجلة: ${totalRows} مادة في ملف "${finalFileName}".`;
-            mergeBtn.textContent = "دمج وتحميل الملف النهائي";
-            mergeBtn.disabled = false;
+            // عرض الإحصائيات (روق الكلام)
+            document.getElementById('statStudents').textContent = uniqueStudents.size;
+            document.getElementById('statMerged').textContent = mergedFilesCount;
+            document.getElementById('statAnomalous').textContent = anomalousFiles.length;
+            
+            const warningBox = document.getElementById('anomalousWarningBox');
+            const anomalousList = document.getElementById('anomalousList');
+            anomalousList.innerHTML = '';
+            
+            if (anomalousFiles.length > 0) {
+                warningBox.style.display = 'block';
+                anomalousFiles.forEach(f => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<b>${f.name}</b> <br><small style="color:#7f8c8d;">السبب: ${f.reason}</small>`;
+                    anomalousList.appendChild(li);
+                });
+            } else {
+                warningBox.style.display = 'none';
+            }
 
-            // اختياري: تفريغ القائمة بعد الدمج الناجح (لو حابب تسيبها شيل السطرين دول)
-            // selectedFiles = [];
-            // updateUI();
+            statusMessage.style.display = 'block';
+            mergeBtn.textContent = "فحص ودمج الملفات المتطابقة";
+            mergeBtn.disabled = false;
 
         } catch (error) {
             console.error(error);
-            alert("حصلت مشكلة أثناء الدمج! يرجى التأكد إن الملفات مش تالفة وإنها ملفات إكسل صحيحة.");
-            mergeBtn.textContent = "دمج وتحميل الملف النهائي";
+            alert("حصلت مشكلة أثناء الدمج! تأكد من سلامة الملفات المرفوعة.");
+            mergeBtn.textContent = "فحص ودمج الملفات المتطابقة";
             mergeBtn.disabled = false;
         }
     }
